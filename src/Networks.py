@@ -27,3 +27,4 @@ class LSTM(nn.Module):
         x = self.embed(x)
         output, last_hidden_state = self.LSTM(x, h0)
         return self.final(all_hidden_states), last_hidden_state
+    
