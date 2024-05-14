@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 # from model import LSTMModel
 from datasets import CharDataset
 from torch.utils.data import DataLoader
+
 
 
 #### CHANGE NAME ####
@@ -69,6 +71,21 @@ class Training:
         self.optimizer.step()
         return loss.detach().item()
     
+    def sampling(self, logits, temperature=1, nucleus=False, nucleus_p = 1.0):
+        # assumes that logits is a 1-d tensor
+        import numpy as np
+        probs = F.softmax(logits/temperature, dim=-1).numpy()
+        if not nucleus: # this can be removed but will save some resources
+            return np.random.choice(np.arange(logits.shape[-1]), p=probs)   
+        
+        # sort index with reverse value order 
+        indices = np.argsort(probs)[::-1]
+        cum_prob = np.cumsum(probs[indices])
+        num_elements_needed = np.argmax(cum_prob > nucleus_p) # returns index of first element satisfied 
+        top_v_indices = indices[:num_elements_needed]
+        probs = probs[top_v_indices]
+        probs /= np.sum(probs) #normalize the new scores
+        return np.random.choice(top_v_indices, p=probs) 
 
     ####### UNFINISHED #######
     ## Need access to id2char and char2id ##
@@ -93,11 +110,8 @@ class Training:
                     # Get the predictions from the model and remove the batch dimension
                     predictions = self.model(input_tensor).squeeze().to(self.device)
                     
-                    # Get the top prediction
-                    _, new_character_tensor = predictions.topk(1)
-                    
                     # Get the ID of the new character
-                    new_character_id = new_character_tensor.detach().item()
+                    new_character_id = self.sampling(predictions)
                     
                     # Print the new character
                     print(id2char[new_character_id], end='')
