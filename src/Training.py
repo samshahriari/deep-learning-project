@@ -18,6 +18,8 @@ class Training:
         self.hidden_size = 64
         learning_rate = 0.001
         self.number_of_epochs = 5
+        self.training_loader = self.prepare_data()
+        self.chosen_device = self.choose_device()
 
     ### Rewrite this function ###
     def prepare_data(self, training_loader):
@@ -36,21 +38,20 @@ class Training:
         
 
     def train(self):
-        training_loader = self.prepare_data()
-        chosen_device = self.choose_device()
+        
 
         self.model.train()
         for epoch in range(self.number_of_epochs):
-            for input_tensor, label in training_loader:
+            for input_tensor, label in self.training_loader:
                 
                 # Move the input and label to the chosen device
-                input_tensor, label = input_tensor.to(chosen_device), label.to(chosen_device)
+                input_tensor, label = input_tensor.to(self.chosen_device), label.to(self.chosen_device)
 
                 # Zero the gradients
                 self.optimizer.zero_grad()
                  
                 # Forward pass happening here
-                predictions = self.model(input_tensor).to(chosen_device)
+                predictions = self.model(input_tensor).to(self.chosen_device)
                 
                 loss = self.backward_pass(self, predictions, label)
 
@@ -70,32 +71,41 @@ class Training:
     
 
     ####### UNFINISHED #######
+    ## Need access to id2char and char2id ##
     def generate_text(self):
         n_chars = 200
-        model.eval()
+        self.model.eval()
         while True:
             start = input(">")
             if start.strip() == 'quit' :
                 break
             # Add spaces in case the start string is too short
-            start = ' '*(n-len(start)) + start
+            start = ' '*(self.n-len(start)) + start
             # Ignore everything but the last n characters of the start string
-            ids = [char_to_id[c] for c in start][-n:]
+            ids = [char2id[c] for c in start][-n:]
             # Generate 200 characters starting from the start string
             try:
                 for _ in range(n_chars):
-                    input_tensor = torch.tensor(ids).unsqueeze(0).to(device)
 
-                    predictions = model(input_tensor).squeeze().to(device)
+                    # Add batch dimension to the input tensor so it can handle more than one input
+                    input_tensor = torch.tensor(ids).unsqueeze(0).to(self.device)
+
+                    # Get the predictions from the model and remove the batch dimension
+                    predictions = self.model(input_tensor).squeeze().to(self.device)
                     
+                    # Get the top prediction
                     _, new_character_tensor = predictions.topk(1)
                     
+                    # Get the ID of the new character
                     new_character_id = new_character_tensor.detach().item()
                     
-                    print(id_to_char[new_character_id], end='')
+                    # Print the new character
+                    print(id2char[new_character_id], end='')
                     
+                    # Update the input tensor for the next iteration
                     ids.pop(0)
                     
+                    # Add the new character ID
                     ids.append(new_character_id)
                 print()
             except KeyError:

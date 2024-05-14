@@ -30,4 +30,6 @@ class CharDataset(Dataset):
                 id2char.append(char)
             restult.append(char2id[char])
         return restult
-            
+    
+
+
