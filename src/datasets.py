@@ -2,21 +2,23 @@ import torch
 from torch.utils.data import Dataset
 
 class CharDataset(Dataset):
-    id2char = list()
-    char2id = dict()
 
-    datapoints = list()
-    labels = list()
     def __init__(self, file_path, context_size):
         self.context_size = context_size
+        self.id2char = []
+        self.char2id = {}
+        self.datapoints = []
+        self.labels = []
+        with open(file_path, 'r') as file:
+            text = file.read()
+            chars_ids = self.get_ids(text)
 
-        for i in range(len(chars_ids)-n-1):
-            self.datapoints.append(chars_ids[i:i+n])
-            self.labels.append(chars_ids[i+n])
+            for i in range(len(chars_ids) - self.context_size - 1):
+                self.datapoints.append(chars_ids[i:i + self.context_size])
+                self.labels.append(chars_ids[i+self.context_size])
 
     def __len__(self):
         return len(self.datapoints)
-
 
     def __getitem__(self, idx):
         idx = idx % len(self.datapoints)
@@ -24,11 +26,11 @@ class CharDataset(Dataset):
     
     def get_ids(self, text):
         restult = list()
-        for char in string:
+        for char in text:
             if char not in self.char2id:
-                char2id[char] = len(id2char)
-                id2char.append(char)
-            restult.append(char2id[char])
+                self.char2id[char] = len(self.id2char)
+                self.id2char.append(char)
+            restult.append(self.char2id[char])
         return restult
     
 

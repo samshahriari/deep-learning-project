@@ -10,25 +10,22 @@ from torch.utils.data import DataLoader
 
 #### CHANGE NAME ####
 class Training:
-    def __init__(self, model, learning_rate, number_of_epochs):
-        # model = LSTMModel(n, hidden_size, len(char_to_id)).to(device)
+    def __init__(self, model, learning_rate, number_of_epochs = 5, dataset = 'goblet_book.txt'):
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
+        self.model = model
         self.n = 32
         self.batch_size = 64
         self.hidden_size = 64
         learning_rate = 0.001
-        self.number_of_epochs = 5
-        self.training_loader = self.prepare_data()
+        self.number_of_epochs = number_of_epochs
+        self.training_loader = self.prepare_data(dataset)
         self.chosen_device = self.choose_device()
 
     ### Rewrite this function ###
-    def prepare_data(self, training_loader):
+    def prepare_data(self, training_dataset):
 
-        training_dataset = CharDataset('goblet_book.txt')
-
-        training_loader = DataLoader(training_dataset, batch_size=self.batch_size, collate_fn=char_collate_fn, shuffle=True)
+        training_loader = DataLoader(training_dataset, batch_size=self.batch_size, shuffle=True)
 
         return training_loader
     
@@ -45,7 +42,8 @@ class Training:
         self.model.train()
         for epoch in range(self.number_of_epochs):
             for input_tensor, label in self.training_loader:
-                
+                ###print("input:    ", input_tensor, "label:    ", label)
+                ###print("input shape:    ", input_tensor.shape, "label shape:    ", label.shape)
                 # Move the input and label to the chosen device
                 input_tensor, label = input_tensor.to(self.chosen_device), label.to(self.chosen_device)
 
@@ -53,15 +51,20 @@ class Training:
                 self.optimizer.zero_grad()
                  
                 # Forward pass happening here
-                predictions = self.model(input_tensor).to(self.chosen_device)
-                
-                loss = self.backward_pass(self, predictions, label)
+                h0 = torch.zeros(1, input_tensor.size(0), self.hidden_size).to(self.chosen_device)
+                predictions, _ = self.model(input_tensor, h0)
+
+                loss = self.backward_pass(predictions, label)
 
             print("Epoch", epoch+1, "completed : ", end="")
             print("loss=", loss)
 
     def backward_pass(self, X, y):
         # Calculate the loss
+        #Y = torch.unsqueeze(y, 1)
+        #Y = Y.expand(-1, X.shape[1])
+        #Y = torch.unsqueeze(Y, 2)
+
         loss = self.loss_function(X.squeeze(1), y)
         
         # Backward pass
@@ -74,7 +77,7 @@ class Training:
     def sampling(self, logits, temperature=1, nucleus=False, nucleus_p = 1.0):
         # assumes that logits is a 1-d tensor
         import numpy as np
-        probs = F.softmax(logits/temperature, dim=-1).numpy()
+        probs = F.softmax(logits/temperature, dim=-1).detach().numpy()
         if not nucleus: # this can be removed but will save some resources
             return np.random.choice(np.arange(logits.shape[-1]), p=probs)   
         
