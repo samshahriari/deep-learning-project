@@ -15,7 +15,7 @@ class Training:
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.model = model
         self.n = 32
-        self.batch_size = 64
+        self.batch_size = 1
         self.hidden_size = 64
         learning_rate = 0.001
         self.number_of_epochs = number_of_epochs
@@ -27,7 +27,7 @@ class Training:
     ### Rewrite this function ###
     def prepare_data(self, training_dataset):
 
-        training_loader = DataLoader(training_dataset, batch_size=self.batch_size, shuffle=True)
+        training_loader = DataLoader(training_dataset, batch_size=self.batch_size, shuffle=False)
 
         return training_loader
     
@@ -41,6 +41,7 @@ class Training:
     def train(self):
         self.model.train()
         for epoch in range(self.number_of_epochs):
+            h0 = None
             for input_tensor, label in self.training_loader:
                 ###print("input:    ", input_tensor, "label:    ", label)
                 ###print("input shape:    ", input_tensor.shape, "label shape:    ", label.shape)
@@ -51,8 +52,8 @@ class Training:
                 self.optimizer.zero_grad()
                  
                 # Forward pass happening here
-                h0 = torch.zeros(1, input_tensor.size(0), self.hidden_size).to(self.chosen_device)
-                predictions, _ = self.model(input_tensor, h0)
+                # h0 = torch.zeros(1, input_tensor.size(0), self.hidden_size).to(self.chosen_device)
+                predictions, h0 = self.model(input_tensor, h0)
 
                 loss = self.backward_pass(predictions, label)
 
