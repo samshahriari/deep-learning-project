@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 #### CHANGE NAME ####
 class Training:
-    def __init__(self, model, learning_rate, number_of_epochs = 5, dataset = 'goblet_book.txt'):
+    def __init__(self, model, learning_rate,is_word_model, number_of_epochs = 5, dataset = 'goblet_book.txt'):
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.model = model
@@ -20,7 +20,7 @@ class Training:
         learning_rate = 0.001
         self.number_of_epochs = number_of_epochs
         self.training_loader = self.prepare_data(dataset)
-
+        self.is_word_model = is_word_model
         self.chosen_device = self.choose_device()
         self.model.to(self.chosen_device)
 
@@ -39,10 +39,13 @@ class Training:
         
 
     def train(self):
-        self.model.train()
         for epoch in range(self.number_of_epochs):
+            if self.is_word_model: self.synthesize_text_word_model()
+            else: self.synthesize_text_char_model()
+            self.model.train()
             h0 = None
-            for input_tensor, label in self.training_loader:
+            from tqdm import tqdm
+            for input_tensor, label in tqdm(self.training_loader):
                 ###print("input:    ", input_tensor, "label:    ", label)
                 ###print("input shape:    ", input_tensor.shape, "label shape:    ", label.shape)
                 # Move the input and label to the chosen device
@@ -59,6 +62,9 @@ class Training:
 
             print("Epoch", epoch+1, "completed : ", end="")
             print("loss=", loss)
+            torch.save(self.model.state_dict(), f"model_epoch_{epoch+1}.pt")
+        if self.is_word_model: self.synthesize_text_word_model()
+        else: self.synthesize_text_char_model()
 
     def backward_pass(self, X, y):
         # Calculate the loss
@@ -94,88 +100,80 @@ class Training:
         probs /= np.sum(probs) #normalize the new scores
         return np.random.choice(top_v_indices, p=probs) 
 
-    ####### UNFINISHED #######
-    ## Need access to id2token and token2id ##
-    def generate_text(self, n_chars = 200):
+
+    def synthesize_text_char_model(self, n_chars = 200):
 
         # todo: gör detta smidigare :)
         token2id = self.training_loader.dataset.token2id
         id2token = self.training_loader.dataset.id2token
-        n_chars = 200
         self.model.eval()
-        while True:
-            start = input(">")
-            if start.strip() == 'quit' :
-                break
-            # Add spaces in case the start string is too short
-            start = ' '*(self.n-len(start)) + start
-            # Ignore everything but the last n characters of the start string
-            ids = [token2id[c] for c in start][-self.n:]
-            # Generate 200 characters starting from the start string
-            try:
-                for _ in range(n_chars):
+        start = "."
+        # Add spaces in case the start string is too short
+        start = ' '*(self.n-len(start)) + start
+        # Ignore everything but the last n characters of the start string
+        ids = [token2id[c] for c in start][-self.n:]
+        # Generate 200 characters starting from the start string
+        try:
+            for _ in range(n_chars):
 
-                    # Add batch dimension to the input tensor so it can handle more than one input
-                    input_tensor = torch.tensor(ids).unsqueeze(0).to(self.chosen_device)
+                # Add batch dimension to the input tensor so it can handle more than one input
+                input_tensor = torch.tensor(ids).unsqueeze(0).to(self.chosen_device)
 
-                    # Get the predictions from the model and remove the batch dimension
-                    predictions,_ = self.model(input_tensor)
-                    predictions= predictions.squeeze()[-1].to("cpu")
-                    
-                    # Get the ID of the new character
-                    new_character_id = self.sampling(predictions)
-                    
-                    # Print the new character
-                    print(id2token[new_character_id], end='')
-                    
-                    # Update the input tensor for the next iteration
-                    ids.pop(0)
-                    
-                    # Add the new character ID
-                    ids.append(new_character_id)
-                print()
-            except KeyError:
-                continue
+                # Get the predictions from the model and remove the batch dimension
+                predictions,_ = self.model(input_tensor)
+                predictions= predictions.squeeze()[-1].to("cpu")
+                
+                # Get the ID of the new character
+                new_character_id = self.sampling(predictions)
+                
+                # Print the new character
+                print(id2token[new_character_id], end='')
+                
+                # Update the input tensor for the next iteration
+                ids.pop(0)
+                
+                # Add the new character ID
+                ids.append(new_character_id)
+            print()
+        except KeyError:
+            pass
 
-    def generate_text_word_model(self, n_words = 200):
+    def synthesize_text_word_model(self, n_words = 20):
 
         # todo: gör detta smidigare :)
         token2id = self.training_loader.dataset.token2id
         id2token = self.training_loader.dataset.id2token
-        n_chars = 20
         self.model.eval()
-        while True:
-            start = input(">")
-            if start.strip() == 'quit' :
-                break
-            import nltk
-            start = nltk.word_tokenize(start)
-            # Add spaces in case the start string is too short
-            start = ['<pad>']*(self.n-len(start)) + start
-            # Ignore everything but the last n characters of the start string
-            ids = [token2id[token] for token in start][-self.n:]
-            # Generate 200 characters starting from the start string
-            try:
-                for _ in range(n_chars):
+        start = "."
 
-                    # Add batch dimension to the input tensor so it can handle more than one input
-                    input_tensor = torch.tensor(ids).unsqueeze(0).to(self.chosen_device)
+        import nltk
+        start = nltk.word_tokenize(start)
+        # Add spaces in case the start string is too short
+        start = ['<pad>']*(self.n-len(start)) + start
+        # Ignore everything but the last n characters of the start string
+        ids = [token2id[token] for token in start][-self.n:]
+        # Generate 200 characters starting from the start string
+        try:
+            for _ in range(n_words):
 
-                    # Get the predictions from the model and remove the batch dimension
-                    predictions,_ = self.model(input_tensor)
-                    predictions= predictions.squeeze()[-1].to("cpu")
-                    
-                    # Get the ID of the new character
-                    new_character_id = self.sampling(predictions)
-                    
-                    # Print the new character
-                    print(id2token[new_character_id], end=' ')
-                    
-                    # Update the input tensor for the next iteration
-                    ids.pop(0)
-                    
-                    # Add the new character ID
-                    ids.append(new_character_id)
-                print()
-            except KeyError:
-                continue
+                # Add batch dimension to the input tensor so it can handle more than one input
+                input_tensor = torch.tensor(ids).unsqueeze(0).to(self.chosen_device)
+
+                # Get the predictions from the model and remove the batch dimension
+                predictions,_ = self.model(input_tensor)
+                predictions= predictions.squeeze()[-1].to("cpu")
+                
+                # Get the ID of the new character
+                new_character_id = self.sampling(predictions)
+                
+                # Print the new character
+                print(id2token[new_character_id], end=' ')
+                
+                # Update the input tensor for the next iteration
+                ids.pop(0)
+                
+                # Add the new character ID
+                ids.append(new_character_id)
+            print()
+        except KeyError:
+            pass
