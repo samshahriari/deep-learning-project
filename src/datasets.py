@@ -4,20 +4,32 @@ import numpy as np
 
 class CharDataset(Dataset):
 
-    def __init__(self, file_path, context_size):
+    def __init__(self, file_path, context_size, lines_are_disjunct):
         self.context_size = context_size
-        self.id2token = []
-        self.token2id = {}
+        self.id2token = ["<eos>"]
+        self.token2id = {"<eos>":0}
         self.datapoints = []
         self.labels = []
         with open(file_path, 'r') as file:
-            text = file.read()
-            chars_ids = self.get_ids(text)
 
-            for i in range(len(chars_ids) - self.context_size - 1):
-                self.datapoints.append(chars_ids[i:i + self.context_size])
-                self.labels.append(chars_ids[i+1:i+self.context_size+1])
-                # self.labels.append(chars_ids[i+self.context_size])
+            if not lines_are_disjunct:
+                text = file.read()
+                chars_ids = self.get_ids(text)
+
+                for i in range(len(chars_ids) - self.context_size - 1):
+                    self.datapoints.append(chars_ids[i:i + self.context_size])
+                    self.labels.append(chars_ids[i+1:i+self.context_size+1])
+                    # self.labels.append(chars_ids[i+self.context_size])
+            else:
+                for line in file:
+                    line = line 
+                    chars_ids = self.get_ids(line) + [self.token2id["<eos>"]]
+
+                    for i in range(len(chars_ids) - self.context_size - 1):
+                        self.datapoints.append(chars_ids[i:i + self.context_size])
+                        self.labels.append(chars_ids[i+1:i+self.context_size+1])
+                        # self.labels.append(chars_ids[i+self.context_size])
+
         print("dataset contains", self.__len__() )
 
     def __len__(self):
@@ -83,7 +95,7 @@ class WordDataset(Dataset):
         self.id2token.append(token.lower())
         return self.token2id[token.lower()] 
         
-    def __init__(self, file_path, context_size, embedding_file_path):
+    def __init__(self, file_path, context_size, lines_are_disjunct, embedding_file_path):
         import nltk
         try :
             nltk.word_tokenize("make sure that the nltk vocabulary is already downloaded.")
@@ -96,10 +108,18 @@ class WordDataset(Dataset):
         self.labels = []
         with open(file_path, "r") as file:
             # nu ser den hela texten som en stor klump och skapar datapunkter mha sliding window men vi kan också se varje rad som en träningspunkt
-            tokens = nltk.word_tokenize(file.read())
-            for i in range(len(tokens) - self.context_size - 1):
-                self.datapoints.append(list(map(self.get_embedding_id, tokens[i:i + self.context_size])))
-                self.labels.append(list(map(self.get_embedding_id, tokens[i+1:i+self.context_size+1])))
+            if not lines_are_disjunct:
+                tokens = nltk.word_tokenize(file.read())
+                for i in range(len(tokens) - self.context_size - 1):
+                    self.datapoints.append(list(map(self.get_embedding_id, tokens[i:i + self.context_size])))
+                    self.labels.append(list(map(self.get_embedding_id, tokens[i+1:i+self.context_size+1])))
+            else:
+                for line in file:
+                    tokens = nltk.word_tokenize(line) + ["<eos>"]
+                    for i in range(len(tokens) - self.context_size - 1):
+                        self.datapoints.append(list(map(self.get_embedding_id, tokens[i:i + self.context_size])))
+                        self.labels.append(list(map(self.get_embedding_id, tokens[i+1:i+self.context_size+1])))
+
     
     
     def __len__(self):
