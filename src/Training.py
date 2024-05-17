@@ -20,7 +20,9 @@ class Training:
         learning_rate = 0.001
         self.number_of_epochs = number_of_epochs
         self.training_loader = self.prepare_data(dataset)
+
         self.chosen_device = self.choose_device()
+        self.model.to(self.chosen_device)
 
     ### Rewrite this function ###
     def prepare_data(self, training_dataset):
@@ -37,8 +39,6 @@ class Training:
         
 
     def train(self):
-        
-
         self.model.train()
         for epoch in range(self.number_of_epochs):
             for input_tensor, label in self.training_loader:
