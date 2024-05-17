@@ -1,12 +1,13 @@
 import torch
 from torch.utils.data import Dataset
+import numpy as np
 
 class CharDataset(Dataset):
 
     def __init__(self, file_path, context_size):
         self.context_size = context_size
-        self.id2char = []
-        self.char2id = {}
+        self.id2token = []
+        self.token2id = {}
         self.datapoints = []
         self.labels = []
         with open(file_path, 'r') as file:
@@ -28,10 +29,10 @@ class CharDataset(Dataset):
     def get_ids(self, text):
         restult = list()
         for char in text:
-            if char not in self.char2id:
-                self.char2id[char] = len(self.id2char)
-                self.id2char.append(char)
-            restult.append(self.char2id[char])
+            if char not in self.token2id:
+                self.token2id[char] = len(self.id2token)
+                self.id2token.append(char)
+            restult.append(self.token2id[char])
         return restult
     
 

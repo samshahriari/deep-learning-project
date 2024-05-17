@@ -94,8 +94,12 @@ class Training:
         return np.random.choice(top_v_indices, p=probs) 
 
     ####### UNFINISHED #######
-    ## Need access to id2char and char2id ##
-    def generate_text(self):
+    ## Need access to id2token and token2id ##
+    def generate_text(self, n_chars = 200):
+
+        # todo: gör detta smidigare :)
+        token2id = self.training_loader.dataset.token2id
+        id2token = self.training_loader.dataset.id2token
         n_chars = 200
         self.model.eval()
         while True:
@@ -105,22 +109,23 @@ class Training:
             # Add spaces in case the start string is too short
             start = ' '*(self.n-len(start)) + start
             # Ignore everything but the last n characters of the start string
-            ids = [char2id[c] for c in start][-n:]
+            ids = [token2id[c] for c in start][-self.n:]
             # Generate 200 characters starting from the start string
             try:
                 for _ in range(n_chars):
 
                     # Add batch dimension to the input tensor so it can handle more than one input
-                    input_tensor = torch.tensor(ids).unsqueeze(0).to(self.device)
+                    input_tensor = torch.tensor(ids).unsqueeze(0).to(self.chosen_device)
 
                     # Get the predictions from the model and remove the batch dimension
-                    predictions = self.model(input_tensor).squeeze().to(self.device)
+                    predictions,_ = self.model(input_tensor)
+                    predictions= predictions.squeeze()[-1].to("cpu")
                     
                     # Get the ID of the new character
                     new_character_id = self.sampling(predictions)
                     
                     # Print the new character
-                    print(id2char[new_character_id], end='')
+                    print(id2token[new_character_id], end='')
                     
                     # Update the input tensor for the next iteration
                     ids.pop(0)
