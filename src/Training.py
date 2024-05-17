@@ -65,8 +65,10 @@ class Training:
         #Y = torch.unsqueeze(y, 1)
         #Y = Y.expand(-1, X.shape[1])
         #Y = torch.unsqueeze(Y, 2)
+        # print(X.shape)
+        # print(y.shape)
 
-        loss = self.loss_function(X.squeeze(1), y)
+        loss = self.loss_function(X.transpose(1, 2), y)
         
         # Backward pass
         loss.backward()

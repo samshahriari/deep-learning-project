@@ -15,7 +15,8 @@ class CharDataset(Dataset):
 
             for i in range(len(chars_ids) - self.context_size - 1):
                 self.datapoints.append(chars_ids[i:i + self.context_size])
-                self.labels.append(chars_ids[i+self.context_size])
+                self.labels.append(chars_ids[i+1:i+self.context_size+1])
+                # self.labels.append(chars_ids[i+self.context_size])
 
     def __len__(self):
         return len(self.datapoints)
