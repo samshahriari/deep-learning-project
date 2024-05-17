@@ -7,4 +7,3 @@ training_dataset = WordDataset('../../sprakt/assignment4/exercise/HP_book_1.txt'
 model = LSTM(len(training_dataset.id2token), 64, len(training_dataset.id2token), num_layers=2, embedding_size=training_dataset.embedding_dimension, embedding_weights=training_dataset.embeddings)
 training_process = Training(model, 0.001, True, 25, training_dataset)
 training_process.train()
-training_process.generate_text(100)
