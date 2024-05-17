@@ -81,6 +81,7 @@ class Training:
         # assumes that logits is a 1-d tensor
         import numpy as np
         probs = F.softmax(logits/temperature, dim=-1).detach().numpy()
+        probs /= np.sum(probs)
         if not nucleus: # this can be removed but will save some resources
             return np.random.choice(np.arange(logits.shape[-1]), p=probs)   
         
@@ -126,6 +127,49 @@ class Training:
                     
                     # Print the new character
                     print(id2token[new_character_id], end='')
+                    
+                    # Update the input tensor for the next iteration
+                    ids.pop(0)
+                    
+                    # Add the new character ID
+                    ids.append(new_character_id)
+                print()
+            except KeyError:
+                continue
+
+    def generate_text_word_model(self, n_words = 200):
+
+        # todo: gör detta smidigare :)
+        token2id = self.training_loader.dataset.token2id
+        id2token = self.training_loader.dataset.id2token
+        n_chars = 20
+        self.model.eval()
+        while True:
+            start = input(">")
+            if start.strip() == 'quit' :
+                break
+            import nltk
+            start = nltk.word_tokenize(start)
+            # Add spaces in case the start string is too short
+            start = ['<pad>']*(self.n-len(start)) + start
+            # Ignore everything but the last n characters of the start string
+            ids = [token2id[token] for token in start][-self.n:]
+            # Generate 200 characters starting from the start string
+            try:
+                for _ in range(n_chars):
+
+                    # Add batch dimension to the input tensor so it can handle more than one input
+                    input_tensor = torch.tensor(ids).unsqueeze(0).to(self.chosen_device)
+
+                    # Get the predictions from the model and remove the batch dimension
+                    predictions,_ = self.model(input_tensor)
+                    predictions= predictions.squeeze()[-1].to("cpu")
+                    
+                    # Get the ID of the new character
+                    new_character_id = self.sampling(predictions)
+                    
+                    # Print the new character
+                    print(id2token[new_character_id], end=' ')
                     
                     # Update the input tensor for the next iteration
                     ids.pop(0)

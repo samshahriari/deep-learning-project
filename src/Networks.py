@@ -2,11 +2,15 @@ import torch
 from torch import nn
 
 class RNN(nn.Module):
-    def __init__(self, num_unique_chars, hidden_size, output_size):
+    def __init__(self, num_unique_chars, hidden_size, output_size, embedding_size=None, embedding_weights=None):
         super(RNN, self).__init__()
-
-        self.embed  = nn.Embedding(num_unique_chars, hidden_size)
-        self.RNN = nn.RNN(hidden_size, hidden_size, batch_first=True)
+        if embedding_size is None:
+            embedding_size = hidden_size
+        self.embed = nn.Embedding(num_unique_chars, embedding_size)
+        if embedding_weights is not None:
+            print("using pretrained embeddings")
+            self.embed.weight = nn.Parameter( torch.tensor(embedding_weights, dtype=torch.float), requires_grad=True)
+        self.RNN = nn.RNN(embedding_size, hidden_size, batch_first=True)
         self.final = nn.Linear(hidden_size, output_size)
 
     def forward(self, x, h0=None):
@@ -17,11 +21,15 @@ class RNN(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, num_unique_chars, hidden_size, output_size, num_layers=1):
+    def __init__(self, num_unique_chars, hidden_size, output_size, num_layers=1, embedding_size=None, embedding_weights=None):
         super(LSTM, self).__init__()
-
-        self.embed  = nn.Embedding(num_unique_chars, hidden_size)
-        self.LSTM = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True)
+        if embedding_size is None:
+            embedding_size = hidden_size
+        self.embed  = nn.Embedding(num_unique_chars, embedding_size)
+        if embedding_weights is not None:
+            print("using pretrained embeddings")
+            self.embed.weight = nn.Parameter( torch.tensor(embedding_weights, dtype=torch.float), requires_grad=True)
+        self.LSTM = nn.LSTM(embedding_size, hidden_size, num_layers, batch_first=True)
         self.final = nn.Linear(hidden_size, output_size)
 
     def forward(self, x, h0=None):
