@@ -103,6 +103,8 @@ class Training:
 
     def synthesize_text_char_model(self, n_chars = 200):
 
+        gen_text = ""
+
         # todo: gör detta smidigare :)
         token2id = self.training_loader.dataset.token2id
         id2token = self.training_loader.dataset.id2token
@@ -128,6 +130,7 @@ class Training:
                 
                 # Print the new character
                 print(id2token[new_character_id], end='')
+                gen_text += id2token[new_character_id]
                 
                 # Update the input tensor for the next iteration
                 ids.pop(0)
@@ -135,10 +138,13 @@ class Training:
                 # Add the new character ID
                 ids.append(new_character_id)
             print()
+
+            return gen_text
         except KeyError:
             pass
 
     def synthesize_text_word_model(self, n_words = 20):
+        gen_text = ""
 
         # todo: gör detta smidigare :)
         token2id = self.training_loader.dataset.token2id
@@ -168,6 +174,7 @@ class Training:
                 
                 # Print the new character
                 print(id2token[new_character_id], end=' ')
+                gen_text += id2token[new_character_id] + " "
                 
                 # Update the input tensor for the next iteration
                 ids.pop(0)
@@ -175,5 +182,7 @@ class Training:
                 # Add the new character ID
                 ids.append(new_character_id)
             print()
+
+            return gen_text
         except KeyError:
             pass
