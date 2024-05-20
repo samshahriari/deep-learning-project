@@ -7,6 +7,7 @@ from datasets import CharDataset
 from torch.utils.data import DataLoader
 from bleu_score import calc_BLEU, prepare_ref_text
 from check_word import read_eng_dictionary, calculate_accuracy
+import datetime
 
 
 
@@ -85,7 +86,9 @@ class Training:
             val_loss = self.calculate_validation_loss()
             training_losses.append(train_loss)
             validation_losses.append(val_loss)
-            torch.save(self.model.state_dict(), f"model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}_epoch_{epoch+1}.pt")
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            torch.save(self.model.state_dict(), f"{timestamp}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}_epoch_{epoch+1}.pt")
         
             # Kör txt generation efter varje epok istället
             gen_text = ""
@@ -102,9 +105,9 @@ class Training:
             word_accuracies.append(correct_words)
 
 
-        self.plot(range(self.number_of_epochs), training_losses, validation_losses, "Training loss", "Validation loss", "Epoch", "Loss", "Training and validation loss over epochs")
-        self.plot(range(self.number_of_epochs), bleu_scores, None, "BLEU score", "Epoch", "BLEU score", None, "BLEU score over epochs")
-        self.plot(range(self.number_of_epochs), word_accuracies, None, "Word accuracy", "Epoch", "Word accuracy", None, "Word accuracy over epochs")
+        self.plot(training_losses, validation_losses, "Training loss", "Validation loss", "Loss", "Epoch", "Training and validation loss over epochs")
+        self.plot(bleu_scores, None, "BLEU score", "Epoch", None, "Epoch", "BLEU score over epochs")
+        self.plot(word_accuracies, None, "Word accuracy", "Epoch", None, "Epoch", "Word accuracy over epochs")
             
         ### Test results on test dataset ###
         gen_text = ""
@@ -130,18 +133,20 @@ class Training:
                 validation_loss += loss.item()
         return validation_loss / len(self.validation_loader)
     
-    
-    def plot(self, xlist, ylist, ylist2, label, label2, xlabel, ylabel, title):
+
+    def plot(self, ylist, ylist2, label, label2, ylabel, xlabel, title):
         import matplotlib.pyplot as plt
-        plt.plot(xlist, ylist, label=label)
+        plt.figure()
+        plt.plot(ylist, label=label)
         if ylist2:
-            plt.plot(xlist, ylist2, label=label2)
+            plt.plot(ylist2, label=label2)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         # plt.show()
-        plt.savefig(f"{xlabel}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}.png")
+        plt.savefig(f"{timestamp}_{label}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}.png")
 
 
     def backward_pass(self, X, y):
