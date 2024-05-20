@@ -12,15 +12,26 @@ if __name__ == "__main__":
 
 
     ### Test run ###
-    num_epochs = 24
+    
+
+    model_info = {
+        'model_type': 'LSTM',
+        'num_nodes': 32,
+        'context_size': 15,
+        'learning_rate': 0.001,
+        'num_epochs' : 25
+    }
 
 
-    training_dataset = CharDataset('train.txt', 5, True)
-    validation_dataset = CharDataset('val.txt', 5, True)
-    test_dataset = CharDataset('test.txt', 5, True)
-
-    model = LSTM(len(training_dataset.id2token), 32, len(training_dataset.id2token), num_layers=2)
-    training_process = Training(model, 0.001, False, num_epochs, training_dataset, validation_dataset, test_dataset)
+    training_dataset = CharDataset('train.txt', model_info['context_size'], True)
+    validation_dataset = CharDataset('val.txt', model_info['context_size'], True)
+    test_dataset = CharDataset('test.txt', model_info['context_size'], True)
+    if model_info['model_type'] == 'RNN':
+        model = RNN(len(training_dataset.id2token), model_info['num_nodes'], len(training_dataset.id2token), num_layers=2)
+    else:
+        model = LSTM(len(training_dataset.id2token), 32, len(training_dataset.id2token), num_layers=2)
+        
+    training_process = Training(model, 0.001, False, model_info['n_epochs'], training_dataset, validation_dataset, test_dataset, model_info)
     training_process.train()
     # generated_text = training_process.synthesize_text_char_model(training_process.test_dataset)
     # bleu = bleu_score.calc_BLEU(generated_text, 'train.txt')
@@ -33,7 +44,7 @@ if __name__ == "__main__":
         print("Training with parameters:", params)
         training_dataset = CharDataset('goblet_book.txt', params[1], True)
         model = LSTM(len(training_dataset.id2token), params[0], len(training_dataset.id2token), num_layers=2)
-        training_process = Training(model, 0.001, False, 25, training_dataset)
+        training_process = Training(model, model_info['learning_rate'], False, model_info['n_epochs'], training_dataset, validation_dataset, test_dataset, model_info)
         training_process.train()
 
         generated_text = training_process.synthesize_text_char_model()

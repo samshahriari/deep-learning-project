@@ -12,7 +12,7 @@ from check_word import read_eng_dictionary, calculate_accuracy
 
 #### CHANGE NAME ####
 class Training:
-    def __init__(self, model, learning_rate,is_word_model, number_of_epochs, train_dataset, val_dataset, test_dataset):
+    def __init__(self, model, learning_rate,is_word_model, number_of_epochs, train_dataset, val_dataset, test_dataset, model_info):
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.model = model
@@ -28,6 +28,8 @@ class Training:
         self.is_word_model = is_word_model
         self.chosen_device = self.choose_device()
         self.model.to(self.chosen_device)
+
+        self.model_info = model_info
 
     ### Rewrite this function ###
     def prepare_data(self, dataset):
@@ -83,7 +85,7 @@ class Training:
             val_loss = self.calculate_validation_loss()
             training_losses.append(train_loss)
             validation_losses.append(val_loss)
-            torch.save(self.model.state_dict(), f"model_epoch_{epoch+1}.pt")
+            torch.save(self.model.state_dict(), f"model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}_epoch_{epoch+1}.pt")
         
             # Kör txt generation efter varje epok istället
             gen_text = ""
@@ -138,7 +140,8 @@ class Training:
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
-        plt.show()
+        # plt.show()
+        plt.savefig(f"{xlabel}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}.png")
 
 
     def backward_pass(self, X, y):
