@@ -47,6 +47,47 @@ class CharDataset(Dataset):
                 self.id2token.append(char)
             restult.append(self.token2id[char])
         return restult
+
+class BPEDataset(Dataset):
+
+    def __init__(self, file_path, context_size, lines_are_disjunct):
+        from minbpe import RegexTokenizer
+        self.context_size = context_size
+        # self.id2token = ["<eos>"]
+        # self.token2id = {"<eos>":0}
+        self.datapoints = []
+        self.labels = []
+        self.tokenizer = RegexTokenizer()
+        self.tokenizer.load("BPE.model")
+        with open(file_path, 'r') as file:
+
+            if not lines_are_disjunct:
+                text = file.read()
+                chars_ids = self.tokenizer.encode(text)
+
+                for i in range(len(chars_ids) - self.context_size - 1):
+                    self.datapoints.append(chars_ids[i:i + self.context_size])
+                    self.labels.append(chars_ids[i+1:i+self.context_size+1])
+                    # self.labels.append(chars_ids[i+self.context_size])
+            else:
+                for line in file: #file.read().split("\n\n")
+                    line = line + " <eos>"
+                    chars_ids = self.tokenizer.encode(line, "all")
+
+                    for i in range(len(chars_ids) - self.context_size - 1):
+                        self.datapoints.append(chars_ids[i:i + self.context_size])
+                        self.labels.append(chars_ids[i+1:i+self.context_size+1])
+                        # self.labels.append(chars_ids[i+self.context_size])
+
+        print("dataset contains", self.__len__() )
+
+    def __len__(self):
+        return len(self.datapoints)
+
+    def __getitem__(self, idx):
+        idx = idx % len(self.datapoints)
+        return torch.tensor(self.datapoints[idx]), torch.tensor(self.labels[idx], dtype=torch.long)
+
     
 
 class WordDataset(Dataset):

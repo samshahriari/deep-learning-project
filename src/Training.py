@@ -186,3 +186,41 @@ class Training:
             return gen_text
         except KeyError:
             pass
+    def synthesize_text_BPE_model(self, n_words = 20):
+        gen_text_BPE = []
+
+        # todo: gör detta smidigare :)
+        tokenizer = self.training_loader.dataset.tokenizer
+        self.model.eval()
+        start = "."
+        start = ' '*(self.n-len(start)) + start
+
+        # Ignore everything but the last n characters of the start string
+        ids = tokenizer.encode(start)[-self.n:]
+        # Generate 200 characters starting from the start string
+        try:
+            for _ in range(n_words):
+
+                # Add batch dimension to the input tensor so it can handle more than one input
+                input_tensor = torch.tensor(ids).unsqueeze(0).to(self.chosen_device)
+
+                # Get the predictions from the model and remove the batch dimension
+                predictions,_ = self.model(input_tensor)
+                predictions= predictions.squeeze()[-1].to("cpu")
+                
+                # Get the ID of the new character
+                new_character_id = self.sampling(predictions)
+                
+                # Print the new character
+                gen_text_BPE.append(new_character_id)
+                
+                # Update the input tensor for the next iteration
+                ids.pop(0)
+                
+                # Add the new character ID
+                ids.append(new_character_id)
+            gen_text = tokenizer.decode(gen_text_BPE)
+            print(gen_text)
+            return gen_text
+        except KeyError:
+            pass
