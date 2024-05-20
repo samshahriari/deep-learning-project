@@ -5,12 +5,14 @@ import torch.nn.functional as F
 # from model import LSTMModel
 from datasets import CharDataset
 from torch.utils.data import DataLoader
+from bleu_score import calc_BLEU, prepare_ref_text
+from check_word import read_eng_dictionary, calculate_accuracy
 
 
 
 #### CHANGE NAME ####
 class Training:
-    def __init__(self, model, learning_rate,is_word_model, number_of_epochs = 5, dataset = 'goblet_book.txt'):
+    def __init__(self, model, learning_rate,is_word_model, number_of_epochs, train_dataset, val_dataset, test_dataset):
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.model = model
@@ -19,17 +21,20 @@ class Training:
         self.hidden_size = 64
         learning_rate = 0.001
         self.number_of_epochs = number_of_epochs
-        self.training_loader = self.prepare_data(dataset)
+        self.training_loader = self.prepare_data(train_dataset)
+        self.validation_loader = self.prepare_data(val_dataset)
+        self.test_loader = self.prepare_data(test_dataset)
+
         self.is_word_model = is_word_model
         self.chosen_device = self.choose_device()
         self.model.to(self.chosen_device)
 
     ### Rewrite this function ###
-    def prepare_data(self, training_dataset):
+    def prepare_data(self, dataset):
 
-        training_loader = DataLoader(training_dataset, batch_size=self.batch_size, shuffle=False)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False)
 
-        return training_loader
+        return loader
     
     def choose_device(self):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -39,9 +44,20 @@ class Training:
         
 
     def train(self):
+        
+        eng_words = read_eng_dictionary()
+        ref_text = prepare_ref_text('goblet_book.txt')
+
+        
+        training_losses = list()
+        validation_losses = list()
+        word_accuracies = list()
+        bleu_scores = list()
+
+
         for epoch in range(self.number_of_epochs):
-            if self.is_word_model: self.synthesize_text_word_model()
-            else: self.synthesize_text_char_model()
+            if self.is_word_model: self.synthesize_text_word_model(self.training_loader)
+            else: self.synthesize_text_char_model(self.training_loader)
             self.model.train()
             h0 = None
             from tqdm import tqdm
@@ -58,13 +74,72 @@ class Training:
                 # h0 = torch.zeros(1, input_tensor.size(0), self.hidden_size).to(self.chosen_device)
                 predictions, h0 = self.model(input_tensor, h0)
 
-                loss = self.backward_pass(predictions, label)
+                train_loss = self.backward_pass(predictions, label)
+
+            
 
             print("Epoch", epoch+1, "completed : ", end="")
-            print("loss=", loss)
+            print("loss=", train_loss)
+            val_loss = self.calculate_validation_loss()
+            training_losses.append(train_loss)
+            validation_losses.append(val_loss)
             torch.save(self.model.state_dict(), f"model_epoch_{epoch+1}.pt")
-        if self.is_word_model: self.synthesize_text_word_model()
-        else: self.synthesize_text_char_model()
+        
+            # Kör txt generation efter varje epok istället
+            gen_text = ""
+            if self.is_word_model: 
+                gen_text = self.synthesize_text_word_model(self.training_loader)
+            else: 
+                gen_text = self.synthesize_text_char_model(self.training_loader)
+
+            bleu = calc_BLEU(gen_text, ref_text)
+            correct_words = calculate_accuracy(gen_text, eng_words) 
+
+            bleu_scores.append(bleu)
+            print(bleu)
+            word_accuracies.append(correct_words)
+
+
+        self.plot(range(self.number_of_epochs), training_losses, validation_losses, "Training loss", "Validation loss", "Epoch", "Loss", "Training and validation loss over epochs")
+        self.plot(range(self.number_of_epochs), bleu_scores, None, "BLEU score", "Epoch", "BLEU score", None, "BLEU score over epochs")
+        self.plot(range(self.number_of_epochs), word_accuracies, None, "Word accuracy", "Epoch", "Word accuracy", None, "Word accuracy over epochs")
+            
+        ### Test results on test dataset ###
+        gen_text = ""
+        if self.is_word_model:
+            gen_text = self.synthesize_text_word_model(self.test_loader)
+        else:
+            gen_text = self.synthesize_text_char_model(self.test_loader)
+        bleu = calc_BLEU(gen_text, ref_text)
+        print("BLEU score on test dataset: ", bleu)
+        correct_words = calculate_accuracy(gen_text, eng_words)
+        print("Word accuracy on test dataset: ", correct_words)
+        
+    
+    def calculate_validation_loss(self):
+        self.model.eval()
+        validation_loss = 0.0
+        h0 = None
+        with torch.no_grad():
+            for input_tensor, label in self.validation_loader:
+                input_tensor, label = input_tensor.to(self.chosen_device), label.to(self.chosen_device)
+                predictions, h0 = self.model(input_tensor, h0)
+                loss = self.loss_function(predictions.transpose(1, 2), label)
+                validation_loss += loss.item()
+        return validation_loss / len(self.validation_loader)
+    
+    
+    def plot(self, xlist, ylist, ylist2, label, label2, xlabel, ylabel, title):
+        import matplotlib.pyplot as plt
+        plt.plot(xlist, ylist, label=label)
+        if ylist2:
+            plt.plot(xlist, ylist2, label=label2)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        plt.legend()
+        plt.show()
+
 
     def backward_pass(self, X, y):
         # Calculate the loss
@@ -101,13 +176,13 @@ class Training:
         return np.random.choice(top_v_indices, p=probs) 
 
 
-    def synthesize_text_char_model(self, n_chars = 200):
+    def synthesize_text_char_model(self, dataloader, n_chars = 200):
 
         gen_text = ""
 
         # todo: gör detta smidigare :)
-        token2id = self.training_loader.dataset.token2id
-        id2token = self.training_loader.dataset.id2token
+        token2id = dataloader.dataset.token2id
+        id2token = dataloader.dataset.id2token
         self.model.eval()
         start = "."
         # Add spaces in case the start string is too short
@@ -143,12 +218,12 @@ class Training:
         except KeyError:
             pass
 
-    def synthesize_text_word_model(self, n_words = 20):
+    def synthesize_text_word_model(self, dataloader, n_words = 20):
         gen_text = ""
 
         # todo: gör detta smidigare :)
-        token2id = self.training_loader.dataset.token2id
-        id2token = self.training_loader.dataset.id2token
+        token2id = dataloader.dataset.token2id
+        id2token = dataloader.dataset.id2token
         self.model.eval()
         start = "."
 
@@ -186,11 +261,13 @@ class Training:
             return gen_text
         except KeyError:
             pass
-    def synthesize_text_BPE_model(self, n_words = 20):
+
+
+    def synthesize_text_BPE_model(self, dataloader, n_words = 20):
         gen_text_BPE = []
 
         # todo: gör detta smidigare :)
-        tokenizer = self.training_loader.dataset.tokenizer
+        tokenizer = dataloader.dataset.tokenizer
         self.model.eval()
         start = "."
         start = ' '*(self.n-len(start)) + start

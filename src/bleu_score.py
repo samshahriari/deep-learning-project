@@ -27,20 +27,26 @@ def calc_bleu_score(hypothesis, reference):
 
     return bleu_score
 
+def prepare_ref_text(ref_txt):
+    txt = convert_file_to_string(ref_txt)
+    ref_list = preprocess_text(txt)
+    return ref_list
 
 def convert_file_to_string(file):
-    with open('goblet_book.txt', 'r') as file:
-        txt = file.read().replace('\n', '')
+    with open(file, 'r') as f:
+        txt = f.read().replace('\n', '')
     return txt
 
 def calc_BLEU(gen_txt, ref_txt):
     gen_txt = preprocess_text(gen_txt)
     
-    ref_txt = convert_file_to_string(ref_txt)
-    ref_txt = preprocess_text(ref_txt)
-    
+    scores = []
     for sentence in gen_txt:
-        return calc_bleu_score(sentence, ref_txt)
+        scores.append(calc_bleu_score(sentence, ref_txt))
+    if len(scores) == 0:
+        return 0
+    avg_BLEU_score = sum(scores) / len(scores) * 100
+    return avg_BLEU_score if avg_BLEU_score != 0 else 0
 
 # if __name__ == "__main__":
 #     reference_text = """

@@ -1,7 +1,7 @@
 from minbpe import RegexTokenizer
 
 TOTAL_TOKENS = 2048
-FILE_PATH = "../entertainment_articles.txt"
+FILE_PATH = "../train.txt"
 
 tokenizer = RegexTokenizer()
 
