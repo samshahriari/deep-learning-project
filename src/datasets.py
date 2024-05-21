@@ -1,13 +1,15 @@
 import torch
 from torch.utils.data import Dataset
 import numpy as np
+import string
+
 
 class CharDataset(Dataset):
 
     def __init__(self, file_path, context_size, lines_are_disjunct):
         self.context_size = context_size
-        self.id2token = ["<eos>"]
-        self.token2id = {"<eos>":0}
+        self.id2token = ["<eos>", "<unk>"] + list(string.printable)
+        self.token2id = {char: i for i, char in enumerate(self.id2token)}
         self.datapoints = []
         self.labels = []
         with open(file_path, 'r') as file:
@@ -22,7 +24,7 @@ class CharDataset(Dataset):
                     # self.labels.append(chars_ids[i+self.context_size])
             else:
                 for line in file:
-                    line = line 
+                    line = line
                     chars_ids = self.get_ids(line) + [self.token2id["<eos>"]]
 
                     for i in range(len(chars_ids) - self.context_size - 1):
@@ -30,7 +32,7 @@ class CharDataset(Dataset):
                         self.labels.append(chars_ids[i+1:i+self.context_size+1])
                         # self.labels.append(chars_ids[i+self.context_size])
 
-        print("dataset contains", self.__len__() )
+        print("dataset contains", self.__len__())
 
     def __len__(self):
         return len(self.datapoints)
@@ -38,15 +40,15 @@ class CharDataset(Dataset):
     def __getitem__(self, idx):
         idx = idx % len(self.datapoints)
         return torch.tensor(self.datapoints[idx]), torch.tensor(self.labels[idx], dtype=torch.long)
-    
+
     def get_ids(self, text):
         restult = list()
         for char in text:
             if char not in self.token2id:
-                self.token2id[char] = len(self.id2token)
-                self.id2token.append(char)
+                char = "<unk>"
             restult.append(self.token2id[char])
         return restult
+
 
 class BPEDataset(Dataset):
 
@@ -70,7 +72,7 @@ class BPEDataset(Dataset):
                     self.labels.append(chars_ids[i+1:i+self.context_size+1])
                     # self.labels.append(chars_ids[i+self.context_size])
             else:
-                for line in file: #file.read().split("\n\n")
+                for line in file:  # file.read().split("\n\n")
                     line = line + " <eos>"
                     chars_ids = self.tokenizer.encode(line, "all")
 
@@ -79,7 +81,7 @@ class BPEDataset(Dataset):
                         self.labels.append(chars_ids[i+1:i+self.context_size+1])
                         # self.labels.append(chars_ids[i+self.context_size])
 
-        print("dataset contains", self.__len__() )
+        print("dataset contains", self.__len__())
 
     def __len__(self):
         return len(self.datapoints)
@@ -88,17 +90,16 @@ class BPEDataset(Dataset):
         idx = idx % len(self.datapoints)
         return torch.tensor(self.datapoints[idx]), torch.tensor(self.labels[idx], dtype=torch.long)
 
-    
 
 class WordDataset(Dataset):
-    
+
     def load_embeddings(self, embedding_file,
-                            pad_token="<pad>", 
-                            end_token="<eos>"):
+                        pad_token="<pad>",
+                        end_token="<eos>"):
         """
         Reads embeddings from a file.
         Each row is an embedding starting with token and then the vector.
-        
+
         based on DD2417 lab 4
         """
         self.token2id = {}  # Dictionary to store word-to-ID mapping
@@ -121,24 +122,23 @@ class WordDataset(Dataset):
         self.embeddings.insert(self.token2id[pad_token], [0]*self.embedding_dimension)  # <pad> has an embedding of just zeros
         self.embeddings.insert(self.token2id[end_token], [-1]*self.embedding_dimension)      # <eos> has an embedding of just minus-ones
 
-
     def get_embedding_id(self, token):
         if token in self.token2id:
             return self.token2id[token]
-        if token.lower() in self.token2id: # in glove there are just lowercase tokens
-            return self.token2id[token.lower()] 
+        if token.lower() in self.token2id:  # in glove there are just lowercase tokens
+            return self.token2id[token.lower()]
 
         print(token)
         # generate a random vector for unseen token
-        embedding_vector = (np.random.random(self.embedding_dimension)-0.5).tolist() 
+        embedding_vector = (np.random.random(self.embedding_dimension)-0.5).tolist()
         self.embeddings.append(embedding_vector)
         self.token2id[token.lower()] = len(self.id2token)
         self.id2token.append(token.lower())
-        return self.token2id[token.lower()] 
-        
+        return self.token2id[token.lower()]
+
     def __init__(self, file_path, context_size, lines_are_disjunct, embedding_file_path):
         import nltk
-        try :
+        try:
             nltk.word_tokenize("make sure that the nltk vocabulary is already downloaded.")
         except LookupError:
             nltk.download('punkt')
@@ -161,8 +161,6 @@ class WordDataset(Dataset):
                         self.datapoints.append(list(map(self.get_embedding_id, tokens[i:i + self.context_size])))
                         self.labels.append(list(map(self.get_embedding_id, tokens[i+1:i+self.context_size+1])))
 
-    
-    
     def __len__(self):
         return len(self.datapoints)
 
