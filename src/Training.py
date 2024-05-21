@@ -8,12 +8,13 @@ from torch.utils.data import DataLoader
 from bleu_score import calc_BLEU, prepare_ref_text
 from check_word import read_eng_dictionary, calculate_accuracy
 import datetime
+import os 
 
 
 
 #### CHANGE NAME ####
 class Training:
-    def __init__(self, model, learning_rate,is_word_model, number_of_epochs, train_dataset, val_dataset, test_dataset, model_info):
+    def __init__(self, model, learning_rate,is_word_model, number_of_epochs, train_dataset, val_dataset, test_dataset, model_info, plotting):
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.model = model
@@ -25,6 +26,7 @@ class Training:
         self.training_loader = self.prepare_data(train_dataset)
         self.validation_loader = self.prepare_data(val_dataset)
         self.test_loader = self.prepare_data(test_dataset)
+        self.plotting = plotting
 
         self.is_word_model = is_word_model
         self.chosen_device = self.choose_device()
@@ -49,7 +51,7 @@ class Training:
     def train(self):
         
         eng_words = read_eng_dictionary()
-        ref_text = prepare_ref_text('goblet_book.txt')
+        ref_text = prepare_ref_text('train.txt')
 
         
         training_losses = list()
@@ -86,9 +88,17 @@ class Training:
             val_loss = self.calculate_validation_loss()
             training_losses.append(train_loss)
             validation_losses.append(val_loss)
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            torch.save(self.model.state_dict(), f"{timestamp}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}_epoch_{epoch+1}.pt")
+
+            folder_path = './saved_models'
+            # Create the folder if it doesn't exist
+            os.makedirs(folder_path, exist_ok=True)
+
+            # Define the full path for the model file
+            model_path = os.path.join(folder_path, f"model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate_{self.model_info['learning_rate']}_epoch_{epoch+1}.pt")
+
+            # Save the model
+            torch.save(self.model.state_dict(), model_path)
         
             # Kör txt generation efter varje epok istället
             gen_text = ""
@@ -101,13 +111,12 @@ class Training:
             correct_words = calculate_accuracy(gen_text, eng_words) 
 
             bleu_scores.append(bleu)
-            print(bleu)
             word_accuracies.append(correct_words)
 
-
-        self.plot(training_losses, validation_losses, "Training loss", "Validation loss", "Loss", "Epoch", "Training and validation loss over epochs")
-        self.plot(bleu_scores, None, "BLEU score", "Epoch", None, "Epoch", "BLEU score over epochs")
-        self.plot(word_accuracies, None, "Word accuracy", "Epoch", None, "Epoch", "Word accuracy over epochs")
+        if self.plotting:
+            self.plot(training_losses, validation_losses, "Training loss", "Validation loss", "Loss", "Epoch", "Training and validation loss over epochs")
+            self.plot(bleu_scores, None, "BLEU score", "Epoch", None, "Epoch", "BLEU score over epochs")
+            self.plot(word_accuracies, None, "Word accuracy", "Epoch", None, "Epoch", "Word accuracy over epochs")
             
         ### Test results on test dataset ###
         gen_text = ""
@@ -115,6 +124,8 @@ class Training:
             gen_text = self.synthesize_text_word_model(self.test_loader)
         else:
             gen_text = self.synthesize_text_char_model(self.test_loader)
+
+        ref_text = prepare_ref_text('test.txt')
         bleu = calc_BLEU(gen_text, ref_text)
         print("BLEU score on test dataset: ", bleu)
         correct_words = calculate_accuracy(gen_text, eng_words)
@@ -146,7 +157,7 @@ class Training:
         plt.legend()
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         # plt.show()
-        plt.savefig(f"{timestamp}_{label}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}.png")
+        plt.savefig(f"{label}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}_{timestamp}.png")
 
 
     def backward_pass(self, X, y):
@@ -305,7 +316,7 @@ class Training:
                 # Add the new character ID
                 ids.append(new_character_id)
             gen_text = tokenizer.decode(gen_text_BPE)
-            print(gen_text)
+            # print(gen_text)
             return gen_text
         except KeyError:
             pass

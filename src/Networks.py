@@ -21,7 +21,7 @@ class RNN(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, num_unique_chars, hidden_size, output_size, num_layers=1, embedding_size=None, embedding_weights=None):
+    def __init__(self, num_unique_chars, hidden_size, output_size, num_layers, embedding_size=None, embedding_weights=None):
         super(LSTM, self).__init__()
         if embedding_size is None:
             embedding_size = hidden_size
