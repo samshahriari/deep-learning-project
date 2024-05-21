@@ -120,16 +120,27 @@ class Training:
             
         ### Test results on test dataset ###
         gen_text = ""
-        if self.is_word_model:
-            gen_text = self.synthesize_text_word_model(self.test_loader)
-        else:
-            gen_text = self.synthesize_text_char_model(self.test_loader)
+        ref_text = ""
+        if self.plotting:
+            ref_text = prepare_ref_text('test.txt')
+            if self.is_word_model:
+                gen_text = self.synthesize_text_word_model(self.test_loader)
+            else:
+                gen_text = self.synthesize_text_char_model(self.test_loader)
 
-        ref_text = prepare_ref_text('test.txt')
+        else:
+            ref_text = prepare_ref_text('val.txt')
+            if self.is_word_model:
+                gen_text = self.synthesize_text_word_model(self.validation_loader)
+            else:
+                gen_text = self.synthesize_text_char_model(self.validation_loader)
+
         bleu = calc_BLEU(gen_text, ref_text)
-        print("BLEU score on test dataset: ", bleu)
+        print("BLEU score on dataset: ", bleu)
         correct_words = calculate_accuracy(gen_text, eng_words)
-        print("Word accuracy on test dataset: ", correct_words)
+        print("Word accuracy on dataset: ", correct_words)
+
+        return gen_text, bleu
         
     
     def calculate_validation_loss(self):
