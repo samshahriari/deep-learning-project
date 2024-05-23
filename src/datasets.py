@@ -128,7 +128,6 @@ class WordDataset(Dataset):
         if token.lower() in self.token2id:  # in glove there are just lowercase tokens
             return self.token2id[token.lower()]
 
-        print(token)
         # generate a random vector for unseen token
         embedding_vector = (np.random.random(self.embedding_dimension)-0.5).tolist()
         self.embeddings.append(embedding_vector)

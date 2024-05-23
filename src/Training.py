@@ -13,14 +13,14 @@ import os
 
 #### CHANGE NAME ####
 class Training:
-    def __init__(self, model, learning_rate, is_word_model, number_of_epochs, train_dataset, val_dataset, test_dataset, model_info, plotting):
+    def __init__(self, model, learning_rate, is_word_model, batch_size, number_of_epochs, train_dataset, val_dataset, test_dataset, model_info, plotting):
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         self.model = model
         self.n = 32
-        self.batch_size = 256
+        self.batch_size = batch_size
         self.hidden_size = 64
-        learning_rate = 0.001
+        self.learning_rate = learning_rate
         self.number_of_epochs = number_of_epochs
         self.training_loader = self.prepare_data(train_dataset)
         self.validation_loader = self.prepare_data(val_dataset)
@@ -60,6 +60,7 @@ class Training:
                 self.synthesize_text_word_model(self.training_loader)
             else:
                 self.synthesize_text_char_model(self.training_loader)
+
             self.model.train()
             h0 = None
             from tqdm import tqdm
@@ -103,7 +104,7 @@ class Training:
                 gen_text = self.synthesize_text_word_model(self.training_loader)
             else:
                 gen_text = self.synthesize_text_char_model(self.training_loader)
-
+            
             bleu = calc_BLEU(gen_text, ref_text)
             correct_words = calculate_accuracy(gen_text, eng_words)
 
@@ -137,7 +138,13 @@ class Training:
         correct_words = calculate_accuracy(gen_text, eng_words)
         print("Word accuracy on dataset: ", correct_words)
 
-        return gen_text, bleu
+        print(training_losses)
+        print(validation_losses)
+        print(word_accuracies)
+        print(gen_text)
+        print(bleu)
+
+        return gen_text, validation_losses[-1]
 
     def calculate_validation_loss(self):
         self.model.eval()
@@ -176,7 +183,7 @@ class Training:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         # plt.show()
         plt.savefig(
-            f"{label}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}_{timestamp}.png")
+            f"{label}_model_{self.model_info['model_type']}_nodes_{self.model_info['num_nodes']}_contextSize_{self.model_info['context_size']}_learningRate{self.model_info['learning_rate']}_temp_{self.model_info['tn_search']['temperature']}_nucleus_{self.model_info['tn_search']['nucleus_p']}_{timestamp}.png")
 
     def backward_pass(self, X, y):
         # Calculate the loss
@@ -195,22 +202,30 @@ class Training:
         self.optimizer.step()
         return loss.detach().item()
 
-    def sampling(self, logits, temperature=1, nucleus=False, nucleus_p=1.0):
-        # assumes that logits is a 1-d tensor
+    def sampling(self, logits, temperature=1.0, nucleus=False, nucleus_p=1.0):
         import numpy as np
-        probs = F.softmax(logits/temperature, dim=-1).detach().numpy()
+        import torch.nn.functional as F
+
+        probs = F.softmax(logits / temperature, dim=-1).detach().numpy()
         probs /= np.sum(probs)
-        if not nucleus:  # this can be removed but will save some resources
+
+        if not nucleus:
             return np.random.choice(np.arange(logits.shape[-1]), p=probs)
 
-        # sort index with reverse value order
         indices = np.argsort(probs)[::-1]
         cum_prob = np.cumsum(probs[indices])
-        num_elements_needed = np.argmax(cum_prob > nucleus_p)  # returns index of first element satisfied
+
+        # Find the number of elements needed to exceed the nucleus_p threshold, using binary search to find the cutoff
+        num_elements_needed = np.searchsorted(cum_prob, nucleus_p, side='right') + 1
+
+        num_elements_needed = min(num_elements_needed, len(indices))
+
         top_v_indices = indices[:num_elements_needed]
-        probs = probs[top_v_indices]
-        probs /= np.sum(probs)  # normalize the new scores
-        return np.random.choice(top_v_indices, p=probs)
+        top_probs = probs[top_v_indices]
+        top_probs /= np.sum(top_probs)  
+
+        # Sample from the top probabilities
+        return np.random.choice(top_v_indices, p=top_probs)
 
     def synthesize_text_char_model(self, dataloader, n_chars=200):
 
@@ -237,7 +252,7 @@ class Training:
                 predictions = predictions.squeeze()[-1].to("cpu")
 
                 # Get the ID of the new character
-                new_character_id = self.sampling(predictions)
+                new_character_id = self.sampling(predictions, self.model_info['tn_search']['temperature'], self.model_info['tn_search']['nucleus_search'], self.model_info['tn_search']['nucleus_p'])
 
                 # Print the new character
                 print(id2token[new_character_id], end='')
@@ -282,7 +297,7 @@ class Training:
                 predictions = predictions.squeeze()[-1].to("cpu")
 
                 # Get the ID of the new character
-                new_character_id = self.sampling(predictions)
+                new_character_id = self.sampling(predictions, self.model_info['tn_search']['temperature'], self.model_info['tn_search']['nucleus_search'], self.model_info['tn_search']['nucleus_p'])
 
                 # Print the new character
                 print(id2token[new_character_id], end=' ')
@@ -322,7 +337,7 @@ class Training:
                 predictions = predictions.squeeze()[-1].to("cpu")
 
                 # Get the ID of the new character
-                new_character_id = self.sampling(predictions)
+                new_character_id = self.sampling(predictions, self.model_info['tn_search']['temperature'], self.model_info['tn_search']['nucleus_search'], self.model_info['tn_search']['nucleus_p'])
 
                 # Print the new character
                 gen_text_BPE.append(new_character_id)
