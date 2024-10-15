@@ -1,8 +1,3 @@
 # deep-learning-project
 
-
-# Link to our drive
-https://drive.google.com/drive/u/0/folders/1Qeeys9mX0BPITH57tSclqIUz2Zra7Bwm
-
-# Link to our GCP deep learning VM
-TBA
+Project in DD2424 Deep learning. Goal of the project was to compare how different neural networks, sampling methods, and embedding techniques affected text generation.
